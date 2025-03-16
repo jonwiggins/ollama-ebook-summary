@@ -1,8 +1,9 @@
 defaults:
   prompt: bnotes
-  summary: cognitivetech/obook_summary:q6_k
-  general: notes
-  title: notes # cognitivetech/obook_title:q4_k_m  # default model for title generation
+  summary: gemma-3-4b-it
+  general: gemma-3-4b-it
+  title: gemma-3-4b-it # cognitivetech/obook_title:q4_k_m  # default model for title generation
+  api_base: http://localhost:1234
 prompts:
   bnotes: # Default Prompt
     prompt: Write comprehensive bulleted notes summarizing the provided text, with

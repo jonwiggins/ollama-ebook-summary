@@ -21,6 +21,7 @@ class Config:
         self.prompts = self.config.get('prompts', {})
         self.title_prompt = self.config.get('title_generation', {}).get('prompt', "Default title prompt.")
         self.defaults = self.config.get('defaults', {})
+        self.api_base = self.config.get('api_base', "http://localhost:1234")
 
     @staticmethod
     def load_config(config_path: Path) -> dict:
@@ -142,15 +143,18 @@ def sanitize_text(text: str) -> str:
 
 def generate_title(api_base: str, model: str, clean_text: str, title_prompt: str, config: Config) -> Optional[str]:
     """Generate a unique title using the specified API and return only the first line."""
+    messages = [
+        {"role": "user", "content": f"```{clean_text}```\n\n{title_prompt}"}
+    ]
     payload = {
         "model": model,
-        "prompt": f"```{clean_text}```\n\n{title_prompt}",
+        "messages": messages,
         "stream": False
     }
-    result = make_api_request(api_base, "generate", payload)
+    result = make_api_request(api_base, "v1/chat/completions", payload)
     if result:
-        # Split response by newlines and return only first line, stripped of whitespace
-        return result.get("response", "").strip().split('\n')[0]
+        content = result.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        return content.split('\n')[0]
     return None
 
 def get_unique_title(original_title: str, clean_text: str, previous_original_title: str, api_base: str, title_prompt: str, config: Config) -> Tuple[str, bool]:
@@ -248,18 +252,25 @@ def process_entry(clean_text: str, title: str, config: Config, previous_original
     else:
         prompt = config.get_prompt(prompt_alias)
 
+    # Format the prompt as a user message for the chat completions API
+    messages = [
+        {"role": "user", "content": f"```{clean_text}```\n\n{prompt}"}
+    ]
     payload = {
         "model": model,
-        "prompt": f"```{clean_text}```\n\n{prompt}",
+        "messages": messages,
         "stream": False
     }
 
     start_time = time.time()
-    response_json = make_api_request(api_base, "generate", payload)
+    # Use the /v1/chat/completions endpoint
+    response_json = make_api_request(api_base, "v1/chat/completions", payload)
     end_time = time.time()
 
     if response_json:
-        output = response_json.get("response", "").strip()
+        # Extract the content from the first choice's message
+        content = response_json.get("choices", [{}])[0].get("message", {}).get("content", "").strip()
+        output = content
     else:
         output = "Error: Failed to generate output."
     
@@ -591,7 +602,7 @@ def main():
     model = args.model
     input_file = args.input_file
     prompt_alias = args.prompt
-    api_base = "http://localhost:11434/api"
+    api_base = config.api_base
     ptitle = config.title_prompt
     should_continue = getattr(args, 'continue', False)
 
